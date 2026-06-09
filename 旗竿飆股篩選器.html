@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>旗竿飆股篩選器</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #0d1117;
+  color: #c9d1d9;
+  font-family: -apple-system, 'PingFang TC', 'Noto Sans TC', sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 20px 48px;
+}
+
+h1 {
+  font-size: 1.65rem;
+  font-weight: 800;
+  background: linear-gradient(90deg, #f97316, #ef4444, #ec4899);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 4px;
+}
+.subtitle { color: #6e7681; font-size: 0.8rem; margin-bottom: 24px; text-align: center; line-height: 1.6; }
+
+/* ── Panel ── */
+.panel {
+  width: 100%; max-width: 760px;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 16px;
+  padding: 20px 22px;
+  margin-bottom: 16px;
+}
+.panel-title {
+  font-size: 0.78rem; font-weight: 700;
+  color: #8b949e; letter-spacing: 1px;
+  text-transform: uppercase; margin-bottom: 14px;
+}
+
+/* Token row */
+.token-row { display: flex; gap: 10px; align-items: center; }
+.token-row input {
+  flex: 1; background: #0d1117;
+  border: 1px solid #30363d; border-radius: 8px;
+  color: #e6edf3; font-size: 0.85rem;
+  padding: 8px 12px; outline: none;
+  transition: border-color 0.15s;
+}
+.token-row input:focus { border-color: #58a6ff; }
+.token-row input::placeholder { color: #484f58; }
+.reg-link { font-size: 0.75rem; color: #58a6ff; text-decoration: none; white-space: nowrap; }
+.reg-link:hover { text-decoration: underline; }
+
+/* Params grid */
+.params { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+@media (max-width: 560px) { .params { grid-template-columns: 1fr 1fr; } }
+
+.param { display: flex; flex-direction: column; gap: 6px; }
+.param label { font-size: 0.75rem; color: #8b949e; }
+.param-row { display: flex; align-items: center; gap: 8px; }
+.param input[type=number] {
+  width: 72px; background: #0d1117;
+  border: 1px solid #30363d; border-radius: 8px;
+  color: #e6edf3; font-size: 0.88rem;
+  padding: 6px 10px; outline: none; text-align: center;
+  transition: border-color 0.15s;
+}
+.param input[type=number]:focus { border-color: #f97316; }
+.param-unit { font-size: 0.75rem; color: #6e7681; }
+
+/* Scan button */
+.scan-btn {
+  width: 100%; max-width: 760px;
+  padding: 13px;
+  background: linear-gradient(135deg, #ea580c, #dc2626);
+  border: none; border-radius: 12px;
+  color: #fff; font-size: 1rem; font-weight: 700;
+  cursor: pointer; transition: all 0.18s;
+  margin-bottom: 20px; letter-spacing: 1px;
+  box-shadow: 0 4px 16px rgba(234,88,12,0.3);
+}
+.scan-btn:hover { filter: brightness(1.1); }
+.scan-btn:disabled { opacity: 0.45; cursor: not-allowed; filter: none; }
+
+/* ── Result Card ── */
+.result-card {
+  width: 100%; max-width: 760px;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 16px;
+  overflow: hidden;
+}
+.result-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 15px 20px; border-bottom: 1px solid #30363d;
+}
+.result-title { font-weight: 700; font-size: 0.92rem; color: #e6edf3; }
+.result-meta { font-size: 0.7rem; color: #484f58; text-align: right; line-height: 1.5; }
+
+/* Table */
+.tbl { width: 100%; border-collapse: collapse; }
+.tbl th {
+  padding: 10px 14px;
+  font-size: 0.7rem; font-weight: 700;
+  color: #6e7681; text-align: right;
+  border-bottom: 1px solid #21262d;
+  background: #0d1117;
+  white-space: nowrap;
+}
+.tbl th:first-child, .tbl th:nth-child(2) { text-align: left; }
+.tbl td {
+  padding: 12px 14px;
+  font-size: 0.85rem;
+  border-bottom: 1px solid #21262d;
+  text-align: right; vertical-align: middle;
+}
+.tbl td:first-child, .tbl td:nth-child(2) { text-align: left; }
+.tbl tr:last-child td { border-bottom: none; }
+.tbl tr:hover td { background: #1c2128; }
+
+.rank-cell { font-weight: 700; color: #6e7681; font-size: 0.8rem; width: 32px; }
+.stock-name { font-weight: 600; color: #e6edf3; white-space: nowrap; }
+.stock-code { font-size: 0.7rem; color: #6e7681; margin-top: 1px; }
+.badge { font-size: 0.6rem; padding: 1px 5px; border-radius: 20px; font-weight: 700; margin-left: 5px; vertical-align: middle; }
+.b-tse { background: rgba(31,111,235,0.18); color: #58a6ff; }
+.b-otc { background: rgba(63,185,80,0.18); color: #3fb950; }
+
+.up   { color: #f85149; font-weight: 700; }
+.down { color: #3fb950; font-weight: 700; }
+.neutral { color: #8b949e; }
+
+.cond-dots { display: flex; gap: 4px; justify-content: flex-end; flex-wrap: wrap; }
+.dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  title: '';
+}
+.dot-pass { background: #3fb950; }
+.dot-fail { background: #30363d; }
+
+/* Score bar */
+.score-bar {
+  height: 4px; border-radius: 2px;
+  background: #21262d; margin-top: 3px;
+  overflow: hidden;
+}
+.score-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ea580c, #f97316);
+  border-radius: 2px;
+}
+
+/* Loading */
+.loading {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 52px 24px; gap: 14px;
+  color: #6e7681; font-size: 0.85rem;
+}
+.spinner {
+  width: 34px; height: 34px;
+  border: 3px solid #21262d;
+  border-top-color: #f97316;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.prog-track { width: 240px; height: 4px; background: #21262d; border-radius: 2px; overflow: hidden; }
+.prog-fill { height: 100%; background: linear-gradient(90deg, #ea580c, #f97316); border-radius: 2px; transition: width 0.3s; width: 0; }
+
+.msg { padding: 48px 24px; text-align: center; color: #6e7681; font-size: 0.85rem; line-height: 1.8; }
+.msg strong { color: #f85149; display: block; margin-bottom: 8px; font-size: 1rem; }
+.msg a { color: #58a6ff; }
+
+/* Condition legend */
+.legend {
+  width: 100%; max-width: 760px;
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 8px; margin-bottom: 16px;
+}
+@media (max-width: 560px) { .legend { grid-template-columns: repeat(2, 1fr); } }
+.legend-item {
+  background: #161b22; border: 1px solid #30363d;
+  border-radius: 10px; padding: 10px 12px;
+  font-size: 0.72rem;
+}
+.legend-label { color: #8b949e; margin-bottom: 3px; font-size: 0.65rem; }
+.legend-value { color: #e6edf3; font-weight: 600; }
+
+footer {
+  margin-top: 24px; font-size: 0.68rem; color: #30363d;
+  text-align: center; line-height: 1.6; max-width: 760px;
+}
+</style>
+</head>
+<body>
+
+<h1>🚩 旗竿飆股篩選器</h1>
+<p class="subtitle">
+  策略來源：CMoney 珍妮教學｜大漲一波 → 量縮整理 → 等待第二波<br>
+  資料來源：FinMind｜僅供研究，不構成投資建議
+</p>
+
+<!-- Token -->
+<div class="panel">
+  <div class="panel-title">FinMind Token</div>
+  <div class="token-row">
+    <input id="token" type="password" placeholder="貼上 Token（免費註冊取得，不填可能受限）" />
+    <a class="reg-link" href="https://finmindtrade.com/" target="_blank">免費註冊 →</a>
+  </div>
+</div>
+
+<!-- Parameters -->
+<div class="panel">
+  <div class="panel-title">篩選條件</div>
+  <div class="params">
+    <div class="param">
+      <label>① 旗桿漲幅（N日內）</label>
+      <div class="param-row">
+        <input type="number" id="p-return" value="20" min="5" max="100" step="5" />
+        <span class="param-unit">%↑，過去</span>
+        <input type="number" id="p-days" value="30" min="10" max="60" step="5" style="width:52px" />
+        <span class="param-unit">日</span>
+      </div>
+    </div>
+    <div class="param">
+      <label>② 量縮天數（連續）</label>
+      <div class="param-row">
+        <input type="number" id="p-shrink" value="3" min="2" max="13" step="1" />
+        <span class="param-unit">天以上</span>
+      </div>
+    </div>
+    <div class="param">
+      <label>③ 股價乖離 20MA</label>
+      <div class="param-row">
+        <input type="number" id="p-bias" value="10" min="0" max="50" step="5" />
+        <span class="param-unit">% 以上</span>
+      </div>
+    </div>
+    <div class="param">
+      <label>④ 最低股價門檻</label>
+      <div class="param-row">
+        <input type="number" id="p-minprice" value="10" min="1" max="100" step="1" />
+        <span class="param-unit">元以上</span>
+      </div>
+    </div>
+    <div class="param">
+      <label>⑤ 最大量縮天數</label>
+      <div class="param-row">
+        <input type="number" id="p-maxshrink" value="13" min="3" max="30" step="1" />
+        <span class="param-unit">天以內</span>
+      </div>
+    </div>
+    <div class="param">
+      <label>顯示筆數</label>
+      <div class="param-row">
+        <input type="number" id="p-limit" value="20" min="5" max="100" step="5" />
+        <span class="param-unit">筆</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<button class="scan-btn" id="scan-btn" onclick="scan()">🔍 開始篩選</button>
+
+<!-- Legend -->
+<div class="legend">
+  <div class="legend-item">
+    <div class="legend-label">條件 ①</div>
+    <div class="legend-value">旗桿：N日大漲</div>
+  </div>
+  <div class="legend-item">
+    <div class="legend-label">條件 ②③</div>
+    <div class="legend-value">量縮在均線上</div>
+  </div>
+  <div class="legend-item">
+    <div class="legend-label">條件 ④</div>
+    <div class="legend-value">乖離20MA夠大</div>
+  </div>
+  <div class="legend-item">
+    <div class="legend-label">條件 ⑤</div>
+    <div class="legend-value">收盤 > 10MA</div>
+  </div>
+</div>
+
+<!-- Results -->
+<div class="result-card" id="result-card">
+  <div class="msg" style="padding:32px">按「開始篩選」後顯示結果</div>
+</div>
+
+<footer>
+  策略邏輯參考 CMoney 珍妮教學文章。篩出的股票不代表推薦買進，請自行評估風險。<br>
+  FinMind 免費 Token 每日限 600 次請求。
+</footer>
+
+<script>
+const FM = 'https://api.finmindtrade.com/api/v4/data';
+let busy = false;
+let infoMap = {};   // stock_id → { name, type }
+
+/* ── 日期工具 ── */
+function dateAgo(n) {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d.toISOString().split('T')[0];
+}
+function today() { return new Date().toISOString().split('T')[0]; }
+
+/* ── FinMind 呼叫 ── */
+async function callFM(params) {
+  const token = document.getElementById('token').value.trim();
+  if (token) params.token = token;
+  const r = await fetch(`${FM}?${new URLSearchParams(params)}`);
+  const j = await r.json();
+  if (j.status !== 200) throw new Error(j.msg || `HTTP ${r.status}`);
+  return j.data;
+}
+
+/* ── 進度顯示 ── */
+function setStep(text, pct) {
+  const el = document.getElementById('result-card');
+  const spinner = el.querySelector('.spinner-text');
+  const bar     = el.querySelector('.prog-fill');
+  if (spinner) spinner.textContent = text;
+  if (bar)     bar.style.width = pct + '%';
+}
+
+function showLoading(text = '初始化…') {
+  document.getElementById('result-card').innerHTML = `
+    <div class="loading">
+      <div class="spinner"></div>
+      <span class="spinner-text">${text}</span>
+      <div class="prog-track"><div class="prog-fill" style="width:0"></div></div>
+    </div>`;
+}
+
+/* ── 計算 MA ── */
+function ma(arr, n) {
+  if (arr.length < n) return null;
+  const slice = arr.slice(-n);
+  return slice.reduce((a, b) => a + b, 0) / n;
+}
+
+/* ── 連續量縮天數 ── */
+function shrinkDays(vols) {
+  let days = 0;
+  for (let i = vols.length - 1; i > 0; i--) {
+    if (vols[i] < vols[i - 1]) days++;
+    else break;
+  }
+  return days;
+}
+
+/* ── 主篩選邏輯 ── */
+function analyzeStock(prices, params) {
+  const { minReturn, flagDays, minShrink, maxShrink, minBias, minPrice } = params;
+
+  // 需要足夠的資料點：20MA + flagDays
+  const needed = Math.max(25, flagDays + 5);
+  if (prices.length < needed) return null;
+
+  const last   = prices[prices.length - 1];
+  const close  = parseFloat(last.close);
+  if (close < minPrice) return null;
+
+  const closes = prices.map(p => parseFloat(p.close));
+  const vols   = prices.map(p => parseFloat(p.Trading_Volume || p.volume || 0));
+
+  // MAs
+  const ma20val = ma(closes, 20);
+  const ma10val = ma(closes, 10);
+  if (!ma20val || !ma10val) return null;
+
+  // 近 flagDays 漲幅
+  const idx = prices.length - 1 - flagDays;
+  if (idx < 0) return null;
+  const pastClose = parseFloat(prices[idx < 0 ? 0 : idx].close);
+  if (!pastClose || pastClose === 0) return null;
+  const returnPct = (close - pastClose) / pastClose * 100;
+
+  // 量縮天數
+  const shrink = shrinkDays(vols);
+
+  // 乖離
+  const bias = (close / ma20val - 1) * 100;
+
+  // 條件判斷
+  const c1 = returnPct >= minReturn;          // 旗桿漲幅
+  const c2 = shrink >= minShrink;             // 量縮天數
+  const c3 = shrink <= maxShrink;             // 量縮不超過上限
+  const c4 = bias >= minBias;                 // 乖離夠大
+  const c5 = close > ma20val;                 // 站上 20MA
+  const c6 = close > ma10val;                 // 站上 10MA
+
+  const pass = c1 && c2 && c3 && c4 && c5 && c6;
+  if (!pass) return null;
+
+  // 旗桿最大漲幅（找 flagDays 期間最大漲幅）
+  const minInPeriod = Math.min(...closes.slice(-flagDays));
+  const maxGain = (close - minInPeriod) / minInPeriod * 100;
+
+  // 綜合分數：漲幅 × 乖離比重
+  const score = returnPct * 0.5 + bias * 0.5;
+
+  return {
+    close, ma10: ma10val, ma20: ma20val,
+    returnPct, shrink, bias, maxGain, score,
+    conditions: { c1, c2, c3, c4, c5, c6 },
+    date: last.date
+  };
+}
+
+/* ── 主流程 ── */
+async function scan() {
+  if (busy) return;
+  busy = true;
+
+  document.getElementById('scan-btn').disabled = true;
+  showLoading('載入中…');
+
+  // 讀取參數
+  const params = {
+    minReturn : parseFloat(document.getElementById('p-return').value)    || 20,
+    flagDays  : parseInt(document.getElementById('p-days').value)         || 30,
+    minShrink : parseInt(document.getElementById('p-shrink').value)       || 3,
+    maxShrink : parseInt(document.getElementById('p-maxshrink').value)    || 13,
+    minBias   : parseFloat(document.getElementById('p-bias').value)       || 10,
+    minPrice  : parseFloat(document.getElementById('p-minprice').value)   || 10,
+    limit     : parseInt(document.getElementById('p-limit').value)        || 20,
+  };
+
+  try {
+    // Step 1: 股票名稱
+    setStep('① 載入股票基本資料…', 10);
+    if (Object.keys(infoMap).length === 0) {
+      try {
+        const info = await callFM({ dataset: 'TaiwanStockInfo' });
+        for (const s of info) {
+          infoMap[s.stock_id] = { name: s.stock_name || s.stock_id, type: s.type };
+        }
+      } catch { /* 失敗不影響 */ }
+    }
+
+    // Step 2: 下載近期股價
+    // 需要足夠日曆天數讓交易日 >= flagDays + 25
+    const calDays = Math.max(80, params.flagDays * 2 + 30);
+    const startDate = dateAgo(calDays);
+    const endDate   = today();
+
+    setStep('② 下載股價資料（可能需要 10~20 秒）…', 25);
+    const prices = await callFM({
+      dataset: 'TaiwanStockPrice',
+      start_date: startDate,
+      end_date:   endDate,
+    });
+
+    if (!prices || prices.length === 0)
+      throw new Error('回傳資料為空，請確認 Token 是否正確或今日是否為交易日。');
+
+    setStep(`③ 分析 ${prices.length.toLocaleString()} 筆資料…`, 70);
+
+    // Step 3: 按股票分組
+    const byStock = {};
+    for (const r of prices) {
+      const id = r.stock_id;
+      // 過濾：只保留純數字 4 碼（排除 ETF 和衍生品）
+      if (!/^\d{4}$/.test(id)) continue;
+      if (!byStock[id]) byStock[id] = [];
+      byStock[id].push(r);
+    }
+
+    // Step 4: 各股分析
+    const hits = [];
+    for (const [id, rows] of Object.entries(byStock)) {
+      rows.sort((a, b) => a.date < b.date ? -1 : 1);
+      const result = analyzeStock(rows, params);
+      if (result) {
+        const info   = infoMap[id] || { name: id, type: '上市' };
+        const market = info.type === '上市' ? 'TSE' : 'OTC';
+        hits.push({ id, name: info.name, market, ...result });
+      }
+    }
+
+    // Step 5: 排序（分數高的優先）
+    hits.sort((a, b) => b.score - a.score);
+
+    setStep('完成！', 100);
+    await new Promise(r => setTimeout(r, 300)); // 短暫顯示 100%
+
+    render(hits.slice(0, params.limit), hits.length, params, startDate, endDate);
+
+  } catch (err) {
+    document.getElementById('result-card').innerHTML = `
+      <div class="msg">
+        <strong>⚠️ 錯誤：${err.message}</strong>
+        請確認 Token 是否正確，或至
+        <a href="https://finmindtrade.com/" target="_blank">finmindtrade.com</a>
+        免費註冊後再試。
+      </div>`;
+  }
+
+  document.getElementById('scan-btn').disabled = false;
+  busy = false;
+}
+
+/* ── 渲染結果 ── */
+function render(list, totalHits, params, startDate, endDate) {
+  const ts = new Date().toLocaleString('zh-TW', {
+    timeZone: 'Asia/Taipei', hour12: false,
+    month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+  });
+
+  if (!list.length) {
+    document.getElementById('result-card').innerHTML = `
+      <div class="msg">
+        <strong>😶 沒有符合條件的股票</strong>
+        可以試著放寬條件：降低漲幅門檻、縮短量縮天數要求，或降低乖離門檻。
+      </div>`;
+    return;
+  }
+
+  const rows = list.map((s, i) => {
+    const mkt = s.market === 'TSE'
+      ? '<span class="badge b-tse">上市</span>'
+      : '<span class="badge b-otc">上櫃</span>';
+
+    const { c1, c2, c3, c4, c5, c6 } = s.conditions;
+    const dots = [
+      { pass: c1, tip: `旗桿漲幅 +${s.returnPct.toFixed(1)}%` },
+      { pass: c2, tip: `量縮 ${s.shrink} 天` },
+      { pass: c3, tip: `量縮未過長` },
+      { pass: c4, tip: `乖離 20MA ${s.bias.toFixed(1)}%` },
+      { pass: c5, tip: '站上 20MA' },
+      { pass: c6, tip: '站上 10MA' },
+    ].map(d => `<div class="dot ${d.pass ? 'dot-pass' : 'dot-fail'}" title="${d.tip}"></div>`).join('');
+
+    const scorePct = Math.min(100, (s.score / 80) * 100).toFixed(0);
+
+    return `
+      <tr>
+        <td class="rank-cell">${i + 1}</td>
+        <td>
+          <div class="stock-name">${s.name}${mkt}</div>
+          <div class="stock-code">${s.id} · ${s.date}</div>
+        </td>
+        <td><span class="up">+${s.returnPct.toFixed(1)}%</span></td>
+        <td>${s.shrink} 天</td>
+        <td class="up">+${s.bias.toFixed(1)}%</td>
+        <td>${s.close.toFixed(1)}</td>
+        <td>
+          <div class="cond-dots">${dots}</div>
+          <div class="score-bar"><div class="score-fill" style="width:${scorePct}%"></div></div>
+        </td>
+      </tr>`;
+  }).join('');
+
+  document.getElementById('result-card').innerHTML = `
+    <div class="result-header">
+      <span class="result-title">
+        🚩 旗竿飆股 — 找到 <span style="color:#f97316">${totalHits}</span> 檔，顯示前 ${list.length} 筆
+      </span>
+      <div class="result-meta">更新：${ts}<br>資料期間：${startDate} ~ ${endDate}</div>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>股票</th>
+            <th title="近 ${params.flagDays} 日漲幅">旗桿漲幅</th>
+            <th title="連續量縮天數">量縮</th>
+            <th title="收盤乖離 20 日均線">乖離20MA</th>
+            <th>收盤價</th>
+            <th title="6 個綠點 = 全過，滑鼠移上可看條件說明">條件 ①②③④⑤⑥</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div style="padding:10px 16px;font-size:0.7rem;color:#484f58;border-top:1px solid #21262d">
+      條件說明：① 旗桿漲幅 ② 量縮達門檻 ③ 量縮未過長 ④ 乖離20MA ⑤ 站上20MA ⑥ 站上10MA
+      &nbsp;｜&nbsp;排序依據：漲幅 × 乖離綜合分數
+    </div>`;
+}
+</script>
+</body>
+</html>
