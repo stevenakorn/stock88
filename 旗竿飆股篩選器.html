@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>旗竿飆股篩選器</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background:#0d1117; color:#c9d1d9; font-family:-apple-system,'PingFang TC','Noto Sans TC',sans-serif; min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:40px 20px 48px; }
+h1 { font-size:1.65rem; font-weight:800; background:linear-gradient(90deg,#f97316,#ef4444,#ec4899); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; margin-bottom:4px; }
+.subtitle { color:#6e7681; font-size:.8rem; margin-bottom:22px; text-align:center; line-height:1.7; }
+.panel { width:100%; max-width:760px; background:#161b22; border:1px solid #30363d; border-radius:16px; padding:18px 20px; margin-bottom:14px; }
+.panel-title { font-size:.72rem; font-weight:700; color:#6e7681; letter-spacing:1.5px; text-transform:uppercase; margin-bottom:12px; }
+.token-row { display:flex; gap:10px; align-items:center; }
+.token-row input { flex:1; background:#0d1117; border:1px solid #30363d; border-radius:8px; color:#e6edf3; font-size:.85rem; padding:8px 12px; outline:none; transition:border-color .15s; }
+.token-row input:focus { border-color:#58a6ff; }
+.token-row input::placeholder { color:#484f58; }
+.reg-link { font-size:.75rem; color:#58a6ff; text-decoration:none; white-space:nowrap; }
+.reg-link:hover { text-decoration:underline; }
+.token-hint { font-size:.7rem; color:#6e7681; margin-top:8px; line-height:1.6; }
+.token-hint b { color:#f97316; }
+.params { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+@media(max-width:560px){ .params { grid-template-columns:1fr 1fr; } }
+.param { display:flex; flex-direction:column; gap:5px; }
+.param label { font-size:.72rem; color:#8b949e; }
+.param-row { display:flex; align-items:center; gap:6px; }
+.param input[type=number] { width:68px; background:#0d1117; border:1px solid #30363d; border-radius:8px; color:#e6edf3; font-size:.88rem; padding:6px 10px; outline:none; text-align:center; transition:border-color .15s; }
+.param input[type=number]:focus { border-color:#f97316; }
+.param-unit { font-size:.72rem; color:#6e7681; }
+.mode-row { display:flex; gap:8px; margin-top:10px; }
+.mode-btn { padding:6px 14px; border-radius:8px; border:1px solid #30363d; background:#0d1117; color:#8b949e; font-size:.78rem; font-weight:600; cursor:pointer; transition:all .15s; }
+.mode-btn.active { border-color:#f97316; color:#f97316; background:rgba(249,115,22,.1); }
+.scan-btn { width:100%; max-width:760px; padding:13px; background:linear-gradient(135deg,#ea580c,#dc2626); border:none; border-radius:12px; color:#fff; font-size:1rem; font-weight:700; cursor:pointer; transition:all .18s; margin-bottom:18px; letter-spacing:1px; box-shadow:0 4px 16px rgba(234,88,12,.3); }
+.scan-btn:hover { filter:brightness(1.1); }
+.scan-btn:disabled { opacity:.45; cursor:not-allowed; filter:none; }
+.stat-bar { display:grid; grid-template-columns:repeat(6,1fr); gap:6px; width:100%; max-width:760px; margin-bottom:14px; }
+.stat-item { background:#161b22; border:1px solid #30363d; border-radius:10px; padding:8px 10px; text-align:center; }
+.stat-num { font-size:.95rem; font-weight:800; color:#f97316; }
+.stat-label { font-size:.62rem; color:#6e7681; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.result-card { width:100%; max-width:760px; background:#161b22; border:1px solid #30363d; border-radius:16px; overflow:hidden; }
+.result-header { display:flex; justify-content:space-between; align-items:center; padding:14px 20px; border-bottom:1px solid #30363d; }
+.result-title { font-weight:700; font-size:.9rem; color:#e6edf3; }
+.result-meta { font-size:.7rem; color:#484f58; text-align:right; line-height:1.5; }
+.tbl { width:100%; border-collapse:collapse; }
+.tbl th { padding:9px 12px; font-size:.68rem; font-weight:700; color:#6e7681; text-align:right; border-bottom:1px solid #21262d; background:#0d1117; white-space:nowrap; }
+.tbl th:first-child,.tbl th:nth-child(2) { text-align:left; }
+.tbl td { padding:11px 12px; font-size:.83rem; border-bottom:1px solid #21262d; text-align:right; vertical-align:middle; }
+.tbl td:first-child,.tbl td:nth-child(2) { text-align:left; }
+.tbl tr:last-child td { border-bottom:none; }
+.tbl tr:hover td { background:#1c2128; }
+.stock-name { font-weight:600; color:#e6edf3; white-space:nowrap; }
+.stock-code { font-size:.68rem; color:#6e7681; margin-top:1px; }
+.badge { font-size:.58rem; padding:1px 5px; border-radius:20px; font-weight:700; margin-left:4px; vertical-align:middle; }
+.b-tse { background:rgba(31,111,235,.18); color:#58a6ff; }
+.b-otc { background:rgba(63,185,80,.18); color:#3fb950; }
+.up { color:#f85149; font-weight:700; }
+.dots { display:flex; gap:3px; justify-content:flex-end; }
+.dot { width:9px; height:9px; border-radius:50%; cursor:default; }
+.dot-pass { background:#3fb950; }
+.dot-fail { background:#30363d; }
+.loading { display:flex; flex-direction:column; align-items:center; padding:52px 24px; gap:14px; color:#6e7681; font-size:.85rem; }
+.spinner { width:34px; height:34px; border:3px solid #21262d; border-top-color:#f97316; border-radius:50%; animation:spin .7s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+.prog-track { width:240px; height:4px; background:#21262d; border-radius:2px; overflow:hidden; }
+.prog-fill { height:100%; background:linear-gradient(90deg,#ea580c,#f97316); border-radius:2px; transition:width .3s; width:0; }
+.msg { padding:40px 24px; text-align:center; color:#6e7681; font-size:.85rem; line-height:1.8; }
+.msg a { color:#58a6ff; }
+.hint { padding:28px 24px; text-align:center; color:#6e7681; font-size:.85rem; }
+footer { margin-top:18px; font-size:.68rem; color:#30363d; text-align:center; line-height:1.6; max-width:760px; }
+</style>
+</head>
+<body>
+
+<h1>🚩 旗竿飆股篩選器</h1>
+<p class="subtitle">大漲一波（旗桿）→ 量縮整理（旗面）→ 等待第二波發動<br>資料：FinMind｜不構成投資建議</p>
+
+<div class="panel">
+  <div class="panel-title">FinMind Token（必填）</div>
+  <div class="token-row">
+    <input id="token" type="password" placeholder="貼上 Token 字串，例如 eyJhbGci..." />
+    <a class="reg-link" href="https://finmindtrade.com/" target="_blank">免費註冊 →</a>
+  </div>
+  <div class="token-hint">
+    ⚠️ Token 是一串亂碼（非網址）。請至 finmindtrade.com → 登入 → <b>點頭像 → API Token</b> → 複製那串字貼入。<br>
+    ✅ Token 不是 https://... 開頭的網址，若貼了網址會被擋下並提示。
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-title">篩選條件</div>
+  <div class="params">
+    <div class="param">
+      <label>① 旗桿：N日漲幅</label>
+      <div class="param-row">
+        <input type="number" id="p-return" value="15" min="5" max="100" step="5" />
+        <span class="param-unit">%↑，過去</span>
+        <input type="number" id="p-days" value="30" min="10" max="60" step="5" style="width:52px" />
+        <span class="param-unit">交易日</span>
+      </div>
+    </div>
+    <div class="param">
+      <label>② 連續量縮天數</label>
+      <div class="param-row">
+        <input type="number" id="p-shrink" value="2" min="1" max="13" step="1" />
+        <span class="param-unit">～</span>
+        <input type="number" id="p-maxshrink" value="13" min="3" max="30" step="1" style="width:52px"/>
+        <span class="param-unit">天</span>
+      </div>
+    </div>
+    <div class="param">
+      <label>③ 乖離 20MA</label>
+      <div class="param-row">
+        <input type="number" id="p-bias" value="5" min="0" max="50" step="5" />
+        <span class="param-unit">% 以上</span>
+      </div>
+    </div>
+    <div class="param">
+      <label>④ 最低股價</label>
+      <div class="param-row">
+        <input type="number" id="p-minprice" value="10" min="1" max="100" step="1" />
+        <span class="param-unit">元以上</span>
+      </div>
+    </div>
+    <div class="param">
+      <label>顯示筆數</label>
+      <div class="param-row">
+        <input type="number" id="p-limit" value="30" min="10" max="100" step="10" />
+        <span class="param-unit">筆</span>
+      </div>
+    </div>
+    <div class="param">
+      <label>篩選模式</label>
+      <div class="mode-row">
+        <button class="mode-btn active" id="mode-strict"  onclick="setMode('strict')">嚴格</button>
+        <button class="mode-btn"        id="mode-partial" onclick="setMode('partial')">寬鬆</button>
+      </div>
+    </div>
+  </div>
+  <div style="font-size:.7rem;color:#484f58;margin-top:10px">
+    ⚡ 嚴格：6 個條件全通過 　｜　🔍 寬鬆：通過 4 個以上即顯示（含邊界股）
+  </div>
+</div>
+
+<button class="scan-btn" id="scan-btn" onclick="scan()">🔍 開始篩選</button>
+
+<div class="stat-bar" id="stat-bar" style="display:none">
+  <div class="stat-item"><div class="stat-num" id="s-total">-</div><div class="stat-label">分析股票</div></div>
+  <div class="stat-item"><div class="stat-num" id="s-c1">-</div><div class="stat-label">①旗桿漲幅</div></div>
+  <div class="stat-item"><div class="stat-num" id="s-c2">-</div><div class="stat-label">②量縮天數</div></div>
+  <div class="stat-item"><div class="stat-num" id="s-c4">-</div><div class="stat-label">③乖離20MA</div></div>
+  <div class="stat-item"><div class="stat-num" id="s-c5">-</div><div class="stat-label">④站上均線</div></div>
+  <div class="stat-item"><div class="stat-num" id="s-hit">-</div><div class="stat-label">全部通過</div></div>
+</div>
+
+<div class="result-card" id="result-card">
+  <div class="hint">輸入有效 Token 後按「開始篩選」</div>
+</div>
+
+<footer>
+  條件①旗桿漲幅 ②量縮天數 ③量縮不過長 ④乖離20MA ⑤站上20MA ⑥站上10MA<br>
+  FinMind 免費 Token 每日 600 次。策略參考 CMoney 珍妮教學，不構成投資建議。
+</footer>
+
+<script>
+const FM = 'https://api.finmindtrade.com/api/v4/data';
+let busy = false;
+let infoMap = {};
+let scanMode = 'strict';
+let viaProxy = false; // 記錄是否走 proxy
+
+function setMode(m) {
+  scanMode = m;
+  document.getElementById('mode-strict').classList.toggle('active', m==='strict');
+  document.getElementById('mode-partial').classList.toggle('active', m==='partial');
+}
+
+function dateAgo(n) {
+  const d = new Date(); d.setDate(d.getDate()-n);
+  return d.toISOString().split('T')[0];
+}
+
+// ── 多路嘗試 API 呼叫 ──────────────────────────────
+async function callFM(params) {
+  const token = document.getElementById('token').value.trim();
+
+  if (!token) throw new Error('請先填入 FinMind Token（免費註冊 finmindtrade.com）');
+  if (token.startsWith('http') || token.includes('finmind') || token.includes('://')) {
+    throw new Error('Token 欄位貼的是網址！請登入 finmindtrade.com → 點頭像 → API Token，複製那串亂碼（不是網址）貼入。');
+  }
+
+  params.token = token;
+  const qs = new URLSearchParams(params).toString();
+
+  // 3 個路線：直連 → corsproxy.io → allorigins
+  const routes = [
+    { url: `${FM}?${qs}`, parse: r => r },
+    { url: `https://corsproxy.io/?${encodeURIComponent(`${FM}?${qs}`)}`, parse: r => r },
+    { url: `https://api.allorigins.win/get?url=${encodeURIComponent(`${FM}?${qs}`)}`, parse: r => JSON.parse(r.contents) },
+  ];
+
+  // 若上次用過 proxy，直接從 proxy 開始
+  const startIdx = viaProxy ? 1 : 0;
+  let lastErr;
+
+  for (let i = startIdx; i < routes.length; i++) {
+    try {
+      const r = await fetch(routes[i].url, { signal: AbortSignal.timeout ? AbortSignal.timeout(25000) : undefined });
+      if (!r.ok) { lastErr = new Error(`HTTP ${r.status}`); continue; }
+      const raw = await r.json();
+      const j   = routes[i].parse(raw);
+      if (j.status !== 200) throw new Error(j.msg || 'API 錯誤');
+      viaProxy = (i > 0);
+      return j.data;
+    } catch(e) { lastErr = e; }
+  }
+  throw lastErr || new Error('所有連線方式皆失敗，請稍後再試');
+}
+
+// ── UI ────────────────────────────────────────────
+function setStep(text, pct, detail='') {
+  const el = document.getElementById('result-card');
+  const s = el.querySelector('.spinner-text');
+  const b = el.querySelector('.prog-fill');
+  const d = el.querySelector('.step-detail');
+  if(s) s.textContent = text;
+  if(b) b.style.width = pct+'%';
+  if(d) d.textContent = detail;
+}
+function showLoading(text='初始化…') {
+  document.getElementById('result-card').innerHTML = `
+    <div class="loading">
+      <div class="spinner"></div>
+      <span class="spinner-text">${text}</span>
+      <div class="prog-track"><div class="prog-fill" style="width:0"></div></div>
+      <span class="step-detail" style="font-size:.7rem;color:#484f58"></span>
+    </div>`;
+}
+
+// ── 計算工具 ──────────────────────────────────────
+function ma(arr, n) {
+  if(arr.length < n) return null;
+  return arr.slice(-n).reduce((a,b)=>a+b,0)/n;
+}
+function shrinkDays(vols) {
+  let days=0;
+  for(let i=vols.length-1; i>0; i--) {
+    const c=vols[i], p=vols[i-1];
+    if(!c||!p||isNaN(c)||isNaN(p)) break;
+    if(c<p) days++; else break;
+  }
+  return days;
+}
+function analyzeStock(prices, params) {
+  const {minReturn,flagDays,minShrink,maxShrink,minBias,minPrice} = params;
+  const needed = Math.max(25, flagDays+5);
+  if(prices.length < needed) return null;
+
+  const last  = prices[prices.length-1];
+  const close = parseFloat(last.close);
+  if(!close||close<minPrice||isNaN(close)) return null;
+
+  const closes = prices.map(p=>parseFloat(p.close));
+  const vols   = prices.map(p=>parseFloat(p.Trading_Volume??p.volume??p.Vol??0)||0);
+  const ma20   = ma(closes,20);
+  const ma10   = ma(closes,10);
+  if(!ma20||!ma10) return null;
+
+  const refIdx = prices.length-1-flagDays;
+  if(refIdx<0) return null;
+  const pastC  = parseFloat(prices[refIdx].close);
+  if(!pastC||pastC===0) return null;
+  const returnPct = (close-pastC)/pastC*100;
+  const shrink    = shrinkDays(vols);
+  const bias      = (close/ma20-1)*100;
+
+  const c1=returnPct>=minReturn, c2=shrink>=minShrink, c3=shrink<=maxShrink,
+        c4=bias>=minBias,        c5=close>ma20,         c6=close>ma10;
+  const passCount = [c1,c2,c3,c4,c5,c6].filter(Boolean).length;
+  const allPass   = passCount===6;
+  const qualify   = scanMode==='strict' ? allPass : passCount>=4;
+  if(!qualify) return null;
+
+  return { close,ma10,ma20,returnPct,shrink,bias,score:returnPct*.4+bias*.4+shrink*.2,
+           passCount,allPass,conditions:{c1,c2,c3,c4,c5,c6},date:last.date };
+}
+
+// ── 主流程 ────────────────────────────────────────
+async function scan() {
+  if(busy) return;
+  busy=true;
+  document.getElementById('scan-btn').disabled=true;
+  document.getElementById('stat-bar').style.display='none';
+  showLoading('初始化…');
+
+  const params = {
+    minReturn : parseFloat(document.getElementById('p-return').value)||15,
+    flagDays  : parseInt(document.getElementById('p-days').value)||30,
+    minShrink : parseInt(document.getElementById('p-shrink').value)||2,
+    maxShrink : parseInt(document.getElementById('p-maxshrink').value)||13,
+    minBias   : parseFloat(document.getElementById('p-bias').value)||5,
+    minPrice  : parseFloat(document.getElementById('p-minprice').value)||10,
+    limit     : parseInt(document.getElementById('p-limit').value)||30,
+  };
+
+  try {
+    // Step 1: 股票名稱
+    setStep('① 載入股票名稱…', 8);
+    if(Object.keys(infoMap).length===0) {
+      try {
+        const info = await callFM({dataset:'TaiwanStockInfo'});
+        for(const s of info) infoMap[s.stock_id]={name:s.stock_name||s.stock_id,type:s.type};
+      } catch { /* 忽略，用代號代替 */ }
+    }
+
+    // Step 2: 股價資料
+    const calDays   = Math.max(90, params.flagDays*2+40);
+    const startDate = dateAgo(calDays);
+    const endDate   = dateAgo(0);
+    setStep('② 下載全市場股價（20~40 秒）…', 20, `${startDate} ~ ${endDate}${viaProxy?' [透過proxy]':''}`);
+    const prices = await callFM({dataset:'TaiwanStockPrice',start_date:startDate,end_date:endDate});
+    if(!prices||prices.length===0) throw new Error('回傳資料為空。請確認 Token 是否正確，今日是否為交易日。');
+
+    setStep(`③ 整理 ${prices.length.toLocaleString()} 筆…`, 65);
+
+    // 分組
+    const byStock={};
+    for(const r of prices) {
+      const id=r.stock_id;
+      if(!/^\d{4,5}[A-Z]?$/.test(id)) continue;
+      if(!byStock[id]) byStock[id]=[];
+      byStock[id].push(r);
+    }
+
+    setStep('④ 計算條件…', 80);
+    const stats={total:0,c1:0,c2:0,c4:0,c5:0,hit:0};
+    const hits=[];
+
+    for(const [id,rows] of Object.entries(byStock)) {
+      rows.sort((a,b)=>a.date<b.date?-1:1);
+      stats.total++;
+      const closes = rows.map(p=>parseFloat(p.close));
+      const ma20   = ma(closes,20);
+      const lastC  = closes[closes.length-1];
+      if(!ma20||!lastC) continue;
+      if((lastC/ma20-1)*100>=params.minBias) stats.c4++;
+      if(lastC>ma20) stats.c5++;
+      const refIdx=rows.length-1-params.flagDays;
+      if(refIdx>=0) {
+        const pastC=parseFloat(rows[refIdx].close);
+        if(pastC&&(lastC-pastC)/pastC*100>=params.minReturn) stats.c1++;
+      }
+      const vols=rows.map(p=>parseFloat(p.Trading_Volume??p.volume??p.Vol??0)||0);
+      if(shrinkDays(vols)>=params.minShrink) stats.c2++;
+      const result=analyzeStock(rows,params);
+      if(result) {
+        const info=infoMap[id]||{name:id,type:'上市'};
+        hits.push({id,name:info.name,market:info.type==='上市'?'TSE':'OTC',...result});
+        if(result.allPass) stats.hit++;
+      }
+    }
+
+    // 統計列
+    document.getElementById('stat-bar').style.display='grid';
+    document.getElementById('s-total').textContent=stats.total.toLocaleString();
+    document.getElementById('s-c1').textContent=stats.c1;
+    document.getElementById('s-c2').textContent=stats.c2;
+    document.getElementById('s-c4').textContent=stats.c4;
+    document.getElementById('s-c5').textContent=stats.c5;
+    document.getElementById('s-hit').textContent=stats.hit;
+
+    hits.sort((a,b)=>b.passCount!==a.passCount?b.passCount-a.passCount:b.score-a.score);
+    setStep('完成！',100);
+    await new Promise(r=>setTimeout(r,250));
+    render(hits.slice(0,params.limit),hits.length,stats,params,endDate);
+
+  } catch(err) {
+    document.getElementById('result-card').innerHTML=`
+      <div class="msg">
+        <b style="color:#f85149;display:block;margin-bottom:10px;font-size:1rem">⚠️ ${err.message}</b>
+        如需協助，請至 <a href="https://finmindtrade.com/" target="_blank">finmindtrade.com</a> 確認帳號與 Token。
+      </div>`;
+  }
+  document.getElementById('scan-btn').disabled=false;
+  busy=false;
+}
+
+// ── 渲染 ──────────────────────────────────────────
+function render(list,totalHits,stats,params,endDate) {
+  const ts=new Date().toLocaleString('zh-TW',{timeZone:'Asia/Taipei',hour12:false,month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+
+  if(!list.length) {
+    const bottleneck=stats.c1===0?`① 旗桿漲幅≥${params.minReturn}% → 0 檔，請降低漲幅門檻`:
+      stats.c2===0?`② 連續量縮≥${params.minShrink}天 → 0 檔，請降至 1 天`:
+      stats.c4===0?`③ 乖離20MA≥${params.minBias}% → 0 檔，請降低乖離門檻`:
+      `各條件交集為零，請切換「寬鬆模式」或同時降低多個門檻`;
+    document.getElementById('result-card').innerHTML=`
+      <div class="msg">
+        <b style="color:#f97316;display:block;margin-bottom:8px;font-size:1rem">😶 沒有符合條件的股票</b>
+        <b>診斷：</b>${bottleneck}<br><br>
+        各條件通過數 → ①旗桿:<b>${stats.c1}</b> ②量縮:<b>${stats.c2}</b> ③乖離:<b>${stats.c4}</b> ④均線:<b>${stats.c5}</b><br><br>
+        建議：點上方「<b>寬鬆模式</b>」後重新篩選
+      </div>`;
+    return;
+  }
+
+  const rows=list.map((s,i)=>{
+    const mkt=s.market==='TSE'?'<span class="badge b-tse">上市</span>':'<span class="badge b-otc">上櫃</span>';
+    const {c1,c2,c3,c4,c5,c6}=s.conditions;
+    const tips=[`旗桿+${s.returnPct.toFixed(1)}%`,`量縮${s.shrink}天`,`量縮≤${params.maxShrink}天`,`乖離+${s.bias.toFixed(1)}%`,'站上20MA','站上10MA'];
+    const conds=[c1,c2,c3,c4,c5,c6];
+    const dots=conds.map((c,j)=>`<div class="dot ${c?'dot-pass':'dot-fail'}" title="${tips[j]}"></div>`).join('');
+    const pc=s.allPass?'#3fb950':'#f97316';
+    const sign=s.returnPct>=0?'+':'';
+    return `<tr>
+      <td style="width:28px;color:#6e7681;font-size:.75rem">${i+1}</td>
+      <td><div class="stock-name">${s.name}${mkt}</div><div class="stock-code">${s.id} · ${s.date}</div></td>
+      <td><span class="up">${sign}${s.returnPct.toFixed(1)}%</span></td>
+      <td>${s.shrink} 天</td>
+      <td class="up">+${s.bias.toFixed(1)}%</td>
+      <td>${s.close.toFixed(1)}</td>
+      <td><div style="font-size:.68rem;color:${pc};font-weight:700;text-align:right;margin-bottom:3px">${s.passCount}/6</div><div class="dots">${dots}</div></td>
+    </tr>`;
+  }).join('');
+
+  const modeLabel=scanMode==='strict'?'嚴格':'寬鬆';
+  document.getElementById('result-card').innerHTML=`
+    <div class="result-header">
+      <span class="result-title">🚩 找到 <span style="color:#f97316">${totalHits}</span> 檔 <span style="font-size:.72rem;color:#484f58">（${modeLabel}模式）</span></span>
+      <div class="result-meta">更新：${ts}<br>資料至 ${endDate}${viaProxy?' ·proxy':''}</div>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="tbl">
+        <thead><tr><th>#</th><th>股票</th><th>旗桿漲幅</th><th>量縮</th><th>乖離20MA</th><th>收盤</th><th>①②③④⑤⑥</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div style="padding:9px 16px;font-size:.68rem;color:#484f58;border-top:1px solid #21262d">
+      ● 綠點=通過 ○ 灰點=未通過 | 數字=通過幾個條件 | 排序：通過數 > 綜合分數
+    </div>`;
+}
+</script>
+</body>
+</html>
